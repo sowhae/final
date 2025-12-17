@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Shadow Puppet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #000;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Background spotlight */
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* Webcam video */
+        #webcam {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 2;
+            transform: scaleX(-1); /* Mirror the webcam */
+            opacity: 0.3; /* Make it subtle so shadow puppets stand out */
+        }
+
+        /* Shadow puppet overlay */
+        #shadow-puppet {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 50%;
+            max-height: 50%;
+            z-index: 3;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        #shadow-puppet.show {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Video animation overlay */
+        #animation-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 60%;
+            max-height: 60%;
+            z-index: 4;
+            display: none;
+        }
+
+        /* Corner hints */
+        .hint {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            z-index: 5;
+            opacity: 0.7;
+            object-fit: contain;
+        }
+
+        #hint1 {
+            top: 20px;
+            left: 20px;
+        }
+
+        #hint2 {
+            top: 20px;
+            right: 20px;
+        }
+
+        #hint3 {
+            bottom: 20px;
+            left: 20px;
+        }
+
+        #hint4 {
+            bottom: 20px;
+            right: 20px;
+        }
+
+        /* Loading message */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            z-index: 10;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px 40px;
+            border-radius: 10px;
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        /* Canvas for hand detection (hidden) */
+        #canvas {
+            display: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hint {
+                width: 80px;
+                height: 80px;
+            }
+
+            #hint1, #hint2 {
+                top: 10px;
+            }
+
+            #hint3, #hint4 {
+                bottom: 10px;
+            }
+
+            #hint1, #hint3 {
+                left: 10px;
+            }
+
+            #hint2, #hint4 {
+                right: 10px;
+            }
+
+            #shadow-puppet {
+                max-width: 70%;
+                max-height: 70%;
+            }
+
+            #animation-video {
+                max-width: 80%;
+                max-height: 80%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <!-- Background -->
+        <img id="background" src="ixp gestures/spotlight.png" alt="Spotlight Background">
+
+        <!-- Webcam feed -->
+        <video id="webcam" autoplay playsinline></video>
+
+        <!-- Shadow puppet image -->
+        <img id="shadow-puppet" alt="Shadow Puppet">
+
+        <!-- Animation video -->
+        <video id="animation-video" playsinline></video>
+
+        <!-- Corner hints -->
+        <img id="hint1" class="hint" src="ixp gestures/hint1.PNG" alt="Hint 1">
+        <img id="hint2" class="hint" src="ixp gestures/hint2.PNG" alt="Hint 2">
+        <img id="hint3" class="hint" src="ixp gestures/hint3.PNG" alt="Hint 3">
+        <img id="hint4" class="hint" src="ixp gestures/hint4.PNG" alt="Hint 4">
+
+        <!-- Loading message -->
+        <div id="loading">Loading hand detection...</div>
+
+        <!-- Hidden canvas for processing -->
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const shadowPuppet = document.getElementById('shadow-puppet');
+        const animationVideo = document.getElementById('animation-video');
+        const loading = document.getElementById('loading');
+
+        let currentGesture = null;
+        let gestureHoldTimer = null;
+        let gestureHoldStartTime = null;
+        const HOLD_DURATION = 2000; // 2 seconds to trigger animation
+
+        // Gesture mapping
+        const GESTURES = {
+            wolf: {
+                image: 'ixp gestures/wolf1.PNG',
+                video: 'ixp gestures/wolf move.mp4'
+            },
+            butterfly: {
+                image: 'ixp gestures/butterfly1.PNG',
+                video: 'ixp gestures/butterfly move.mp4'
+            },
+            rabbit: {
+                image: 'ixp gestures/rabbit1.PNG',
+                video: 'ixp gestures/rabbit move.mp4'
+            },
+            elephant: {
+                image: 'ixp gestures/elephant1.PNG',
+                video: 'ixp gestures/elephant move.mp4'
+            }
+        };
+
+        // Initialize webcam
+        async function initWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 1280,
+                        height: 720,
+                        facingMode: 'user'
+                    }
+                });
+                video.srcObject = stream;
+                return new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        resolve(video);
+                    };
+                });
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                loading.textContent = 'Error: Please allow camera access';
+            }
+        }
+
+        // Gesture recognition logic
+        function recognizeGesture(landmarks) {
+            if (!landmarks || landmarks.length === 0) {
+                return null;
+            }
+
+            const hand = landmarks[0];
+
+            // Calculate finger states
+            const thumbTip = hand[4];
+            const indexTip = hand[8];
+            const middleTip = hand[12];
+            const ringTip = hand[16];
+            const pinkyTip = hand[20];
+
+            const thumbBase = hand[2];
+            const indexBase = hand[5];
+            const middleBase = hand[9];
+            const ringBase = hand[13];
+            const pinkyBase = hand[17];
+
+            // Check if fingers are extended
+            const thumbExtended = thumbTip.x < thumbBase.x - 0.05;
+            const indexExtended = indexTip.y < indexBase.y;
+            const middleExtended = middleTip.y < middleBase.y;
+            const ringExtended = ringTip.y < ringBase.y;
+            const pinkyExtended = pinkyTip.y < pinkyBase.y;
+
+            // Rabbit: Index and middle fingers up, others down
+            if (indexExtended && middleExtended && !ringExtended && !pinkyExtended) {
+                return 'rabbit';
+            }
+
+            // Wolf: All fingers except thumb extended
+            if (indexExtended && middleExtended && ringExtended && pinkyExtended) {
+                return 'wolf';
+            }
+
+            // Butterfly: Thumbs touching, fingers spread
+            if (thumbExtended && indexExtended && middleExtended && ringExtended && pinkyExtended) {
+                return 'butterfly';
+            }
+
+            // Elephant: Index finger extended, others curled
+            if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
+                return 'elephant';
+            }
+
+            return null;
+        }
+
+        // Display shadow puppet
+        function displayShadowPuppet(gesture) {
+            if (!gesture || !GESTURES[gesture]) {
+                shadowPuppet.classList.remove('show');
+                return;
+            }
+
+            shadowPuppet.src = GESTURES[gesture].image;
+            shadowPuppet.classList.add('show');
+        }
+
+        // Play animation video
+        function playAnimation(gesture) {
+            if (!gesture || !GESTURES[gesture]) return;
+
+            const videoSrc = GESTURES[gesture].video;
+            animationVideo.src = videoSrc;
+            animationVideo.style.display = 'block';
+            animationVideo.play();
+
+            // Hide shadow puppet while video plays
+            shadowPuppet.classList.remove('show');
+
+            animationVideo.onended = () => {
+                animationVideo.style.display = 'none';
+                // Show shadow puppet again if gesture still detected
+                if (currentGesture === gesture) {
+                    displayShadowPuppet(gesture);
+                }
+            };
+        }
+
+        // Handle gesture detection
+        function handleGesture(detectedGesture) {
+            if (detectedGesture === currentGesture) {
+                // Same gesture - check hold duration
+                if (gestureHoldStartTime) {
+                    const holdDuration = Date.now() - gestureHoldStartTime;
+                    if (holdDuration >= HOLD_DURATION && animationVideo.style.display !== 'block') {
+                        playAnimation(detectedGesture);
+                        gestureHoldStartTime = null; // Reset to prevent repeated triggers
+                    }
+                }
+            } else {
+                // New gesture detected
+                currentGesture = detectedGesture;
+                gestureHoldStartTime = detectedGesture ? Date.now() : null;
+
+                if (detectedGesture) {
+                    displayShadowPuppet(detectedGesture);
+                } else {
+                    shadowPuppet.classList.remove('show');
+                }
+            }
+        }
+
+        // MediaPipe Hands callback
+        function onResults(results) {
+            // Clear canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Detect gesture
+            const gesture = recognizeGesture(results.multiHandLandmarks);
+            handleGesture(gesture);
+        }
+
+        // Initialize MediaPipe Hands
+        async function initHandDetection() {
+            const hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
+            });
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+
+            hands.onResults(onResults);
+
+            const camera = new Camera(video, {
+                onFrame: async () => {
+                    await hands.send({ image: video });
+                },
+                width: 1280,
+                height: 720
+            });
+
+            camera.start();
+            loading.classList.add('hidden');
+        }
+
+        // Start everything
+        async function init() {
+            await initWebcam();
+            await initHandDetection();
+        }
+
+        init();
+    </script>
+</body>
+</html>

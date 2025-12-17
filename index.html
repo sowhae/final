@@ -290,20 +290,15 @@
             const hand = landmarks[0];
             const fingers = countExtendedFingers(hand);
 
-            // Rabbit: Index and middle fingers up (peace sign) - more lenient
-            if (fingers.index && fingers.middle && !fingers.ring && fingers.count === 2) {
-                return 'rabbit';
+            // Elephant: Only index finger extended (pointing gesture)
+            // Very lenient - just needs index up and no ring/pinky
+            if (fingers.index && !fingers.ring && !fingers.pinky && fingers.count === 1) {
+                return 'elephant';
             }
 
-            // Elephant: Only index finger up OR index and middle slightly apart
-            if (fingers.index && !fingers.ring && !fingers.pinky && fingers.count <= 2) {
-                // Check if it's more elephant-like (index dominant)
-                const indexHeight = hand[5].y - hand[8].y;
-                const middleHeight = hand[9].y - hand[12].y;
-
-                if (indexHeight > middleHeight * 0.7) {
-                    return 'elephant';
-                }
+            // Rabbit: Index and middle fingers up (peace sign)
+            if (fingers.index && fingers.middle && !fingers.ring && !fingers.pinky && fingers.count === 2) {
+                return 'rabbit';
             }
 
             // Wolf: Three or four fingers extended (open hand)

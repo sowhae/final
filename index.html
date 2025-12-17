@@ -71,6 +71,14 @@
             transform: translate(-50%, -50%) scale(1.3);
         }
 
+        #shadow-puppet.wolf {
+            top: 50%;
+        }
+
+        #shadow-puppet.rabbit {
+            top: 50%;
+        }
+
         /* Video animation overlay */
         #animation-video {
             position: absolute;
@@ -313,8 +321,7 @@
         function displayShadowPuppet(gesture) {
             if (!gesture || !GESTURES[gesture]) {
                 shadowPuppet.classList.remove('show');
-                shadowPuppet.classList.remove('butterfly');
-                shadowPuppet.classList.remove('elephant');
+                shadowPuppet.classList.remove('butterfly', 'elephant', 'wolf', 'rabbit');
                 return;
             }
 
@@ -322,13 +329,17 @@
             shadowPuppet.classList.add('show');
 
             // Remove all gesture-specific classes first
-            shadowPuppet.classList.remove('butterfly', 'elephant');
+            shadowPuppet.classList.remove('butterfly', 'elephant', 'wolf', 'rabbit');
 
             // Add gesture-specific class for positioning
             if (gesture === 'butterfly') {
                 shadowPuppet.classList.add('butterfly');
             } else if (gesture === 'elephant') {
                 shadowPuppet.classList.add('elephant');
+            } else if (gesture === 'wolf') {
+                shadowPuppet.classList.add('wolf');
+            } else if (gesture === 'rabbit') {
+                shadowPuppet.classList.add('rabbit');
             }
         }
 

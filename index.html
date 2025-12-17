@@ -43,11 +43,11 @@
         /* Shadow puppet overlay */
         #shadow-puppet {
             position: absolute;
-            top: 50%;
+            top: 60%;
             left: 50%;
             transform: translate(-50%, -50%);
-            max-width: 95%;
-            max-height: 95%;
+            max-width: 100%;
+            max-height: 100%;
             width: auto;
             height: auto;
             z-index: 3;
@@ -151,8 +151,8 @@
             }
 
             #shadow-puppet {
-                max-width: 98%;
-                max-height: 98%;
+                max-width: 100%;
+                max-height: 100%;
             }
         }
     </style>
@@ -245,52 +245,60 @@
             }
         }
 
+        // Helper function to check if finger is extended
+        function isFingerExtended(hand, fingerTip, fingerBase, threshold = 0.05) {
+            return fingerTip.y < fingerBase.y - threshold;
+        }
+
+        // Helper function to count extended fingers
+        function countExtendedFingers(hand) {
+            const indexExtended = isFingerExtended(hand, hand[8], hand[5], 0.03);
+            const middleExtended = isFingerExtended(hand, hand[12], hand[9], 0.03);
+            const ringExtended = isFingerExtended(hand, hand[16], hand[13], 0.03);
+            const pinkyExtended = isFingerExtended(hand, hand[20], hand[17], 0.03);
+
+            return {
+                index: indexExtended,
+                middle: middleExtended,
+                ring: ringExtended,
+                pinky: pinkyExtended,
+                count: [indexExtended, middleExtended, ringExtended, pinkyExtended].filter(Boolean).length
+            };
+        }
+
         // Gesture recognition logic
         function recognizeGesture(landmarks) {
             if (!landmarks || landmarks.length === 0) {
                 return null;
             }
 
-            const hand = landmarks[0];
-
-            // Calculate finger states
-            const thumbTip = hand[4];
-            const indexTip = hand[8];
-            const middleTip = hand[12];
-            const ringTip = hand[16];
-            const pinkyTip = hand[20];
-
-            const thumbBase = hand[2];
-            const indexBase = hand[5];
-            const middleBase = hand[9];
-            const ringBase = hand[13];
-            const pinkyBase = hand[17];
-
-            // Check if fingers are extended
-            const thumbExtended = thumbTip.x < thumbBase.x - 0.05;
-            const indexExtended = indexTip.y < indexBase.y;
-            const middleExtended = middleTip.y < middleBase.y;
-            const ringExtended = ringTip.y < ringBase.y;
-            const pinkyExtended = pinkyTip.y < pinkyBase.y;
-
-            // Rabbit: Index and middle fingers up, others down
-            if (indexExtended && middleExtended && !ringExtended && !pinkyExtended) {
-                return 'rabbit';
-            }
-
-            // Wolf: All fingers except thumb extended
-            if (indexExtended && middleExtended && ringExtended && pinkyExtended) {
-                return 'wolf';
-            }
-
-            // Butterfly: Thumbs touching, fingers spread
-            if (thumbExtended && indexExtended && middleExtended && ringExtended && pinkyExtended) {
+            // Butterfly: Two hands detected (palms up)
+            if (landmarks.length === 2) {
                 return 'butterfly';
             }
 
-            // Elephant: Index finger extended, others curled
-            if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
-                return 'elephant';
+            const hand = landmarks[0];
+            const fingers = countExtendedFingers(hand);
+
+            // Rabbit: Index and middle fingers up (peace sign) - more lenient
+            if (fingers.index && fingers.middle && !fingers.ring && fingers.count === 2) {
+                return 'rabbit';
+            }
+
+            // Elephant: Only index finger up OR index and middle slightly apart
+            if (fingers.index && !fingers.ring && !fingers.pinky && fingers.count <= 2) {
+                // Check if it's more elephant-like (index dominant)
+                const indexHeight = hand[5].y - hand[8].y;
+                const middleHeight = hand[9].y - hand[12].y;
+
+                if (indexHeight > middleHeight * 0.7) {
+                    return 'elephant';
+                }
+            }
+
+            // Wolf: Three or four fingers extended (open hand)
+            if (fingers.count >= 3) {
+                return 'wolf';
             }
 
             return null;
@@ -373,10 +381,10 @@
             });
 
             hands.setOptions({
-                maxNumHands: 1,
+                maxNumHands: 2,
                 modelComplexity: 1,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
             });
 
             hands.onResults(onResults);

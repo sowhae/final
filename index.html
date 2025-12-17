@@ -65,6 +65,10 @@
             top: 55%;
         }
 
+        #shadow-puppet.elephant {
+            top: 38%;
+        }
+
         /* Video animation overlay */
         #animation-video {
             position: absolute;
@@ -313,17 +317,21 @@
             if (!gesture || !GESTURES[gesture]) {
                 shadowPuppet.classList.remove('show');
                 shadowPuppet.classList.remove('butterfly');
+                shadowPuppet.classList.remove('elephant');
                 return;
             }
 
             shadowPuppet.src = GESTURES[gesture].image;
             shadowPuppet.classList.add('show');
 
-            // Add butterfly class for lower positioning
+            // Remove all gesture-specific classes first
+            shadowPuppet.classList.remove('butterfly', 'elephant');
+
+            // Add gesture-specific class for positioning
             if (gesture === 'butterfly') {
                 shadowPuppet.classList.add('butterfly');
-            } else {
-                shadowPuppet.classList.remove('butterfly');
+            } else if (gesture === 'elephant') {
+                shadowPuppet.classList.add('elephant');
             }
         }
 

@@ -61,6 +61,10 @@
             pointer-events: auto;
         }
 
+        #shadow-puppet.butterfly {
+            top: 55%;
+        }
+
         /* Video animation overlay */
         #animation-video {
             position: absolute;
@@ -308,11 +312,19 @@
         function displayShadowPuppet(gesture) {
             if (!gesture || !GESTURES[gesture]) {
                 shadowPuppet.classList.remove('show');
+                shadowPuppet.classList.remove('butterfly');
                 return;
             }
 
             shadowPuppet.src = GESTURES[gesture].image;
             shadowPuppet.classList.add('show');
+
+            // Add butterfly class for lower positioning
+            if (gesture === 'butterfly') {
+                shadowPuppet.classList.add('butterfly');
+            } else {
+                shadowPuppet.classList.remove('butterfly');
+            }
         }
 
         // Play animation video
